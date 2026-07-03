@@ -1,0 +1,30 @@
+# IVASMS OTP Telegram Bot - Python dependencies
+# Tested with Python 3.11+
+
+# Telegram bot framework (async, modern)
+aiogram==3.13.1
+
+# IVASMS web scraping (Cloudflare bypass)
+cloudscraper==1.2.71
+beautifulsoup4==4.12.3
+lxml==5.3.0
+brotli==1.1.0
+
+# Async SQLite (Railway-friendly persistent storage)
+aiosqlite==0.20.0
+
+# Environment / config
+python-dotenv==1.0.1
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# HTTP / async utilities (used by aiogram internals + our poller)
+aiohttp==3.10.10
+aiolimiter==1.2.1
+
+# Health-check server (for Railway)
+uvicorn==0.32.0
+starlette==0.39.2
+
+# Logging
+loguru==0.7.2

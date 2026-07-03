@@ -1,0 +1,21 @@
+# ──────────────────────────────────────────────
+# Railway deployment config
+# https://railway.app/docs/deploy/config-as-code
+# ──────────────────────────────────────────────
+
+[deploy]
+# Railway needs an HTTP listener to mark the service healthy.
+# Our bot starts a tiny ASGI server on $PORT that responds to /health.
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Auto-deploy whenever you push to the main branch of your GitHub repo.
+# (Configure the repo connection in the Railway dashboard instead.)
+
+[[deploy.volumes]]
+# Mount a persistent volume so SQLite survives redeploys.
+# Path inside the container must match DATABASE_PATH in your env.
+name = "ivasms_data"
+mountPath = "/data"

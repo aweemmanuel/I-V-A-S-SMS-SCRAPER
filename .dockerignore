@@ -1,0 +1,16 @@
+# Keep Docker build context small
+.git
+.gitignore
+.github
+research/
+docs/
+*.md
+!README.md
+.env
+.env.local
+*.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+data/
