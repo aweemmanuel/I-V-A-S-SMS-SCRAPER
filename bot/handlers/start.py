@@ -11,7 +11,7 @@ import logging
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, Document
 
 from .. import database as db
 from .. import ivasms
@@ -149,7 +149,9 @@ async def cb_auth(call: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(AuthFlow.waiting_for_email)
 async def on_email(message: Message, state: FSMContext) -> None:
-    email = message.text.strip()
+    # Strip invisible Unicode chars (Telegram loves to inject U+200B, U+00A0, tabs)
+    _INVISIBLE = "\u200b\u200c\u200d\u200e\u200f\u202a\u202b\u202c\u202d\u202e\ufeff\u00a0"
+    email = (message.text or "").translate({ord(c): "" for c in _INVISIBLE}).strip()
     if "@" not in email or "." not in email:
         await message.answer(
             "⚠️ That doesn't look like a valid email. Try again, or tap ❌ Cancel.",
@@ -168,7 +170,8 @@ async def on_email(message: Message, state: FSMContext) -> None:
 
 @router.message(AuthFlow.waiting_for_password)
 async def on_password(message: Message, state: FSMContext) -> None:
-    password = message.text.strip()
+    _INVISIBLE = "\u200b\u200c\u200d\u200e\u200f\u202a\u202b\u202c\u202d\u202e\ufeff\u00a0"
+    password = (message.text or "").translate({ord(c): "" for c in _INVISIBLE}).strip()
     if not password:
         await message.answer(
             "⚠️ Password can't be empty. Try again, or tap ❌ Cancel.",
@@ -216,20 +219,38 @@ async def on_password(message: Message, state: FSMContext) -> None:
 
 @router.message(AuthFlow.waiting_for_cookies)
 async def on_cookies(message: Message, state: FSMContext) -> None:
-    raw = message.text.strip()
-    # Trim only Telegram's auto-formatting wrappers; keep JSON intact.
-    if raw.startswith("```"):
-        raw = raw.strip("`")
+    # Telegram often injects zero-width spaces (U+200B, U+200E, U+200F),
+    # non-breaking spaces (U+00A0), and tabs at the start of pasted text.
+    # Strip ALL Unicode whitespace + invisible chars, not just ASCII spaces.
+    raw = message.text or ""
+    # Remove zero-width and bidi control chars that Telegram loves to insert
+    _INVISIBLE = "\u200b\u200c\u200d\u200e\u200f\u202a\u202b\u202c\u202d\u202e\ufeff\u00a0"
+    raw = raw.translate({ord(c): "" for c in _INVISIBLE})
     raw = raw.strip()
+    # Also strip Markdown code fences if user wrapped the JSON in ```
+    if raw.startswith("```"):
+        raw = raw.strip("`").strip()
 
-    # Quick sanity check
-    if not raw.startswith("{") and not raw.startswith("["):
+    # Validate by actually trying to parse JSON (more robust than prefix check)
+    import json as _json
+    try:
+        parsed = _json.loads(raw)
+    except _json.JSONDecodeError as e:
         await message.answer(
-            "⚠️ That doesn't look like JSON. It should start with <code>{</code> or <code>[</code>.\n"
-            "Try again, or tap ❌ Cancel.",
+            "⚠️ <b>That isn't valid JSON.</b>\n"
+            f"<code>{e}</code>\n\n"
+            "💡 <b>Tip:</b> If Telegram mangled your paste, try this instead:\n"
+            "1. Open a plain text editor (Notepad / TextEdit)\n"
+            "2. Paste the cookies there\n"
+            "3. Select All → Copy\n"
+            "4. Paste here\n\n"
+            "Or send the JSON as a <b>file attachment</b> (paperclip → Document).",
             reply_markup=kb.cancel_kb(),
         )
         return
+
+    # Re-serialize compactly so we don't store Telegram's whitespace noise
+    raw = _json.dumps(parsed)
 
     await state.clear()
     await db.set_user_credentials(
