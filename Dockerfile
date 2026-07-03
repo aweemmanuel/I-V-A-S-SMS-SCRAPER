@@ -40,6 +40,7 @@ COPY . .
 
 # Persistent data dir (mount a Railway volume here)
 RUN mkdir -p /data
+VOLUME ["/data"]
 
 # Railway injects $PORT — our health server listens on it.
 # We also fall back to 8080 for local docker runs.
